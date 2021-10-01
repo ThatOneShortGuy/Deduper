@@ -21,7 +21,7 @@ prefix_len = 3
 wait_time = 7
 
 
-def print_bytes(nbytes: int, roundto: int=4):
+def print_bytes(nbytes: int, roundto: int = 4):
     '''
     Prints number of bytes in more readable format.
 
@@ -102,12 +102,12 @@ def writes(file, d):
 
     '''
     keys = d.keys()
-    nfile = file + '.deduped' # New file name
+    nfile = file + '.deduped'  # New file name
     with open(file, 'rb') as f, open(nfile, 'wb') as w:
         data = f.read(block_size)
-        t = time.perf_counter() # Time to ensure it doesn't take forever for nothing.
+        t = time.perf_counter()  # Time to ensure it doesn't take forever for nothing.
         while 1:
-            if (key := data[-block_size:]) in keys: # If most recent data == a key
+            if (key := data[-block_size:]) in keys:  # If most recent data == a key
                 key = d[key]
                 data = data[:-block_size]
                 prefix = len(data).to_bytes(prefix_len, 'big')
@@ -115,14 +115,14 @@ def writes(file, d):
                 prefix = len(key).to_bytes(prefix_len, 'big')
                 w.write(prefix + key)
                 data = f.read(block_size)
-                t = time.perf_counter() # Starting over time to show that it is being productive.
+                t = time.perf_counter()  # Starting over time to show that it is being productive.
             else:
-                if not (reads := f.read(1)): # If there is no more file
+                if not (reads := f.read(1)):  # If there is no more file
                     prefix = len(data).to_bytes(prefix_len, 'big')
                     w.write(prefix + data)
                     break
                 else:
-                    if time.perf_counter() - t > wait_time: # Checks to see if its been a while since productive
+                    if time.perf_counter() - t > wait_time:  # Checks to see if its been a while since productive
                         reads = reads + f.read()
                     data += reads
                     if log(len(data), 256) > prefix_len:
@@ -130,7 +130,8 @@ def writes(file, d):
 
     # Copy file metadata to new file to ensure dates stay the same.
     creation_date = os.path.getctime(file)
-    timestamp = int((creation_date * 10000000) + 116444736000000000) # The numbers are the way they are because thats how they are
+    # The numbers are the way they are because thats how they are
+    timestamp = int((creation_date * 10000000) + 116444736000000000)
     ctime = ctypes.wintypes.FILETIME(timestamp & 0xFFFFFFFF, timestamp >> 32)
     handle = ctypes.windll.kernel32.CreateFileW(nfile, 256, 0, None, 3, 128, None)
     ctypes.windll.kernel32.SetFileTime(handle, ctypes.byref(ctime), None, None)
@@ -156,11 +157,11 @@ def reads(file, block_size):
         Basically a dictionary of unique sequential bytes and with quantity.
 
     '''
-    measured = Counter() # Initialize counter
+    measured = Counter()  # Initialize counter
     with open(file, 'rb') as f:
         while True:
             data = f.read(block_size)
-            if not data: # check to see if there is no more data
+            if not data:  # check to see if there is no more data
                 break
             measured.update((data,))
     return measured
@@ -208,11 +209,12 @@ def read_for_size(files):
         threads = [ex.submit(reads, file, block_size) for file in files]
         bar = ProgressBar(len(threads), lr=.0001)
         for thread in as_completed(threads):
-            measured.update(thread.result()) # Updates the Counter with Counter from process
+            measured.update(thread.result())  # Updates the Counter with Counter from process
             bar.update()
 
-    nums = {k: v for k, v in measured.items() if v > 1} # dictionary of all items that appear more than once.
-    return sum(nums.values()*(block_size-prefix_len-1)) - (block_size+prefix_len+1)*len(nums), nums
+    # dictionary of all items that appear more than once.
+    nums = {k: v for k, v in measured.items() if v > 1}
+    return sum(nums.values())*(block_size-prefix_len-1) - (block_size+prefix_len+1)*len(nums), nums
 
 
 def dedupe(folder=None, num_testing=3):
@@ -236,16 +238,17 @@ def dedupe(folder=None, num_testing=3):
     prev_size = get_file_sizes(files)
     global block_size, fill_size
     files = [file for file in files if not file.endswith(
-        ('.py', '.deduped', 'DeTable.pickle'))] # Ensuring files aren't going to be anything that could break the program.
-    if 'DeTable.pickle' in os.listdir(folder): # Could use os.path.exists, but didn't feel like trying. Would only make program 10^-6 secs faster anyway.
+        ('.py', '.deduped', 'DeTable.pickle'))]  # Ensuring files aren't going to be anything that could break the program.
+    # Could use os.path.exists, but didn't feel like trying. Would only make program 10^-6 secs faster anyway.
+    if 'DeTable.pickle' in os.listdir(folder):
         print('Reading from previous compression...')
         with open('DeTable.pickle', 'rb') as f:
             global prefix_len
             prefix_len = int.from_bytes(f.read(1), 'big')
             d = pickle.loads(gzip.decompress(f.read()))
-        new = False # Shows that that metadata doesn't need to be written again.
+        new = False  # Shows that that metadata doesn't need to be written again.
     else:
-        # Testing the optimizations for settings. 
+        # Testing the optimizations for settings.
         # saved = []
         # for i in range(5):
         #     block_size = 256+256*i
@@ -263,8 +266,9 @@ def dedupe(folder=None, num_testing=3):
         if new:
             ex.submit(save_metadata, d)
         threads = [ex.submit(writes, file, d) for file in files]
-        bar = ProgressBar(len(threads), lr=.0001) # Learning rate should be low because of the crazy variation in completion times.
-        bar.show() # Just to show user that it is actually working.
+        # Learning rate should be low because of the crazy variation in completion times.
+        bar = ProgressBar(len(threads), lr=.0001)
+        bar.show()  # Just to show user that it is actually working.
         for future in as_completed(threads):
             bar.update()
             # Check to see if error was thrown.
@@ -281,7 +285,7 @@ def dedupe(folder=None, num_testing=3):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) - 1: # if len(sys.argv) > 1
+    if len(sys.argv) - 1:  # if len(sys.argv) > 1
         folder = sys.argv[1]
         num_testing = int(sys.argv[2])
         dedupe(folder, num_testing)
