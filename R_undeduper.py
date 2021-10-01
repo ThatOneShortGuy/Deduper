@@ -50,7 +50,7 @@ def writer(file: str, table: dict, prefix_len: int) -> None:
     os.remove(file)
 
 
-def loader(folder: str) -> tuple(dict, int):
+def loader(folder: str) -> tuple[dict, int]:
     '''
     Loads in metadata by going back folders until metadata is found.
 
