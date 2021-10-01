@@ -1,4 +1,5 @@
 # Deduper
+### **Be sure to run command** `pip install progressbar_easy` **or module will not work!**
 ## Goal
 The goal of this project is to make a deduper program that anybody can run on their computer to save storage space.
 ## Description
