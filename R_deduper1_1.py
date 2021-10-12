@@ -271,6 +271,7 @@ def dedupe(folder=None, num_testing=None):
     else:
         # Uses pattern search / directional search
         # a_(n+1) = max(a_n ± search) if max > a_n else search /= 2
+        # Generally very effective
         saved = {}
         search = 64
         saved[block_size], _ = read_for_size(files, block_size)
