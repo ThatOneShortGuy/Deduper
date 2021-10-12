@@ -3,13 +3,14 @@ import sys
 from math import log
 import pickle
 import gzip
-from concurrent.futures import ProcessPoolExecutor, as_completed, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from progressbar import ProgressBar
 from collections import Counter
 import shutil
 import ctypes
 import ctypes.wintypes
 import time
+import matplotlib.pyplot as plt
 
 global block_size, prefix_len, wait_time
 # Block size of bytes to dedupe.
@@ -291,6 +292,10 @@ def dedupe(folder=None, num_testing=None):
                 break
             else:
                 search = search // 2
+            plt.scatter(*zip(*tuple(saved.items())))
+            plt.xlabel('Block Size')
+            plt.ylabel('Estimated Bytes Saved')
+            plt.show()
         if block_size in saved:
             block_size = [k for k, _ in sorted(saved.items(), key=lambda x: x[1])][-1]
         est_saved, nums = read_for_size(files, block_size)
