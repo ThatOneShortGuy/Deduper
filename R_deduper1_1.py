@@ -292,10 +292,11 @@ def dedupe(folder=None, num_testing=None):
                 break
             else:
                 search = search // 2
+            plt.cla()
             plt.scatter(*zip(*tuple(saved.items())))
             plt.xlabel('Block Size')
             plt.ylabel('Estimated Bytes Saved')
-            plt.show()
+            plt.pause(.0001)
         if block_size in saved:
             block_size = [k for k, _ in sorted(saved.items(), key=lambda x: x[1])][-1]
         est_saved, nums = read_for_size(files, block_size)
