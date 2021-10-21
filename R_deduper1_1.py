@@ -268,6 +268,7 @@ def dedupe(folder=None, num_testing=None):
             global prefix_len
             prefix_len = int.from_bytes(f.read(1), 'big')
             d = pickle.loads(gzip.decompress(f.read()))
+            block_size = len(next(iter(d.keys())))
         new = False  # Shows that that metadata doesn't need to be written again.
     else:
         # Uses pattern search / directional search
@@ -296,7 +297,7 @@ def dedupe(folder=None, num_testing=None):
             plt.scatter(*zip(*tuple(saved.items())))
             plt.xlabel('Block Size')
             plt.ylabel('Estimated Bytes Saved')
-            plt.pause(.0001)
+            plt.pause(.02)
         if block_size in saved:
             block_size = [k for k, _ in sorted(saved.items(), key=lambda x: x[1])][-1]
         est_saved, nums = read_for_size(files, block_size)
