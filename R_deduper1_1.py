@@ -18,7 +18,7 @@ block_size = 100
 # Prefix length for custom writer. 3 Should work for smaller (20MB) files and will work if bigger files are actually working.
 prefix_len = 3
 # Time of reading/deduping file before giving up if no deduping has happened after wait_time
-wait_time = 7
+wait_time = 10
 
 
 class LoadedFile:
@@ -224,6 +224,8 @@ def read_for_size(files, block_size):
         dictionary of byte sequences and number of appearances in files > 1.
 
     '''
+    if block_size <= prefix_len * 2 + 1:
+        return 0, {}
     measured = Counter()
     with ProcessPoolExecutor() as ex:
         # Discovered threads don't work but didn't change variable names, get over it.
@@ -246,8 +248,8 @@ def dedupe(folder=None, num_testing=None):
     ----------
     folder : str, optional
         Folder to dedupe. Defaults to current directory.
-    num_testing : int, optional (not yet implimented)
-        Number of tests to run to determine optimal settings. The default is 3.
+    num_testing : int, optional
+        Number of tests to run to determine optimal settings. The default is 69.
 
     Returns
     -------
@@ -268,7 +270,7 @@ def dedupe(folder=None, num_testing=None):
             global prefix_len
             prefix_len = int.from_bytes(f.read(1), 'big')
             d = pickle.loads(gzip.decompress(f.read()))
-            block_size = len(next(iter(d.keys())))
+            block_size = len(next(iter(d)))
         new = False  # Shows that that metadata doesn't need to be written again.
     else:
         # Uses pattern search / directional search
@@ -279,10 +281,14 @@ def dedupe(folder=None, num_testing=None):
         saved[block_size], _ = read_for_size(files, block_size)
         cur = (block_size, saved[block_size])
         for _ in range(num_testing):
-            if block_size-search not in saved:
-                saved[block_size-search], _ = read_for_size(files, block_size-search)
-            if block_size+search not in saved:
-                saved[block_size+search], _ = read_for_size(files, block_size+search)
+            for search in [search, -search]:
+                if block_size + search not in saved:
+                    saved[block_size + search], _ = read_for_size(files, block_size + search)
+                plt.cla()
+                plt.scatter(*zip(*tuple(saved.items())))
+                plt.xlabel('Block Size')
+                plt.ylabel('Estimated Bytes Saved')
+                plt.pause(.01)
             lower = (block_size-search, saved[block_size-search])
             upper = (block_size+search, saved[block_size+search])
             if (n := sorted((lower, cur, upper), key=lambda x: x[1])[-1]) != cur:
@@ -293,11 +299,6 @@ def dedupe(folder=None, num_testing=None):
                 break
             else:
                 search = search // 2
-            plt.cla()
-            plt.scatter(*zip(*tuple(saved.items())))
-            plt.xlabel('Block Size')
-            plt.ylabel('Estimated Bytes Saved')
-            plt.pause(.02)
         if block_size in saved:
             block_size = [k for k, _ in sorted(saved.items(), key=lambda x: x[1])][-1]
         est_saved, nums = read_for_size(files, block_size)
