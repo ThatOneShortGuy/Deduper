@@ -295,7 +295,7 @@ def dedupe(folder=None, num_testing=None):
                 block_size = n[0]
                 cur = n
                 print(f'New block_size: {block_size}')
-            elif search <= 1:
+            elif abs(search) <= 1:
                 break
             else:
                 search = search // 2
