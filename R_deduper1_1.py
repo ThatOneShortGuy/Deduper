@@ -99,7 +99,7 @@ def get_file_sizes(files):
     return sum(os.path.getsize(file) for file in files)
 
 
-def writes(file, d, block_size):
+def writes(file, d, block_size, for_recursion=False):
     '''
     Dedupes "file" according to dictionary "d".
 
@@ -116,7 +116,8 @@ def writes(file, d, block_size):
 
     '''
     keys = d.keys()
-    nfile = file + '.deduped'  # New file name
+    nfile = file + '.deduped' if not for_recursion else file + \
+        f'.deduped{len(file):04}'  # New file name
     # f = LoadedFile(file)
     # with open(nfile, 'wb') as w:
     with open(file, 'rb') as f, open(nfile, 'wb') as w:
@@ -158,6 +159,11 @@ def writes(file, d, block_size):
     os.remove(file)
 
 
+def read_part(f, block_size):
+    for i in range(0, len(f), block_size):
+        yield f[i:i+block_size]
+
+
 def reads(file, block_size):
     '''
     Reads "file" in blocks of size "block_size" to determine number of unique sequential bytes.
@@ -178,7 +184,7 @@ def reads(file, block_size):
     # measured = Counter()  # Initialize counter
     # f = LoadedFile(file)
     f = open(file, 'rb').read()
-    return Counter((f[i:i+block_size] for i in range(0, len(f), block_size)))
+    return Counter(read_part(f, block_size))
     # with open(file, 'rb') as f:
     # while True:
     #     data = f.read(block_size)
@@ -188,7 +194,7 @@ def reads(file, block_size):
     # return measured
 
 
-def save_metadata(d):
+def save_metadata(d, file='DeTable.pickle'):
     '''
     Saves dictionary and prefix length.
 
@@ -196,6 +202,8 @@ def save_metadata(d):
     ----------
     d : dict
         Dictionary where the keys are the bytes to dedupe and the value is the key for which retreival will happen.
+    file : str
+        File to save dictionary to.
 
     Returns
     -------
@@ -203,7 +211,7 @@ def save_metadata(d):
 
     '''
     # Writes the prefix len in front of gzipped pickled dictionary. Could be optimized with my custom pickler.
-    with open('DeTable.pickle', 'wb') as f:
+    with open(file, 'wb') as f:
         f.write(prefix_len.to_bytes(1, 'big')+gzip.compress(pickle.dumps(d)))
 
 
@@ -230,7 +238,7 @@ def read_for_size(files, block_size):
     with ProcessPoolExecutor() as ex:
         # Discovered threads don't work but didn't change variable names, get over it.
         threads = [ex.submit(reads, file, block_size) for file in files]
-        bar = ProgressBar(len(threads), lr=.001)
+        bar = ProgressBar(len(threads), use_average=250)
         for thread in as_completed(threads):
             measured.update(thread.result())  # Updates the Counter with Counter from process
             bar.update()
@@ -240,7 +248,7 @@ def read_for_size(files, block_size):
     return sum(nums.values())*(block_size-2*prefix_len-1) - (block_size+prefix_len+1)*len(nums), nums
 
 
-def dedupe(folder=None, num_testing=None):
+def dedupe(folder=None, num_testing=None, recursive=False):
     '''
     Dedupes "folder" with given settings.
 
@@ -250,6 +258,8 @@ def dedupe(folder=None, num_testing=None):
         Folder to dedupe. Defaults to current directory.
     num_testing : int, optional
         Number of tests to run to determine optimal settings. The default is 69.
+    recursive : bool, optional
+        Whether to run on the same files recursively. The default is False.
 
     Returns
     -------
@@ -264,7 +274,7 @@ def dedupe(folder=None, num_testing=None):
     files = [file for file in files if not file.endswith(
         ('.py', '.deduped', 'DeTable.pickle'))]  # Ensuring files aren't going to be anything that could break the program.
     # Could use os.path.exists, but didn't feel like trying. Would only make program 10^-6 secs faster anyway.
-    if 'DeTable.pickle' in os.listdir(folder):
+    if 'DeTable.pickle' in os.listdir(folder) and not recursive:
         print('Reading from previous compression...')
         with open('DeTable.pickle', 'rb') as f:
             global prefix_len
@@ -291,6 +301,11 @@ def dedupe(folder=None, num_testing=None):
                 plt.pause(.01)
             lower = (block_size-search, saved[block_size-search])
             upper = (block_size+search, saved[block_size+search])
+            if search == 0:
+                return  # if search is 0, then the recursive calls have likely found optimality.
+            if lower & upper == 0:
+                search = search // 2
+                continue
             if (n := sorted((lower, cur, upper), key=lambda x: x[1])[-1]) != cur:
                 block_size = n[0]
                 cur = n
